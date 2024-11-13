@@ -1,5 +1,6 @@
 import sys
 import argparse
+import time
 from roku import Roku
 from rokucli.discover import discover_roku
 from blessed import Terminal
@@ -47,7 +48,99 @@ class RokuCLI():
                 nargs='?',
                 help=('IP address of Roku to connect to. By default, will ' +
                       'automatically detect Roku within LAN.'))
+        parser.add_argument(
+            '-c', '--command',
+            help='''Execute commands in script mode using comma-separated values.
+                    Supports commands: home, up, down, left, right, select, etc.
+                    Special commands: WAIT:seconds, TEXT:search_term
+
+                    Examples:
+                    home, down, TEXT:Search Term
+                    volume-up, WAIT:1, volume-up''')
         return parser.parse_args()
+
+    def execute_command(self, cmd):
+        """Execute a single command"""
+        if not (cmd.startswith('TEXT:') or cmd.startswith('WAIT:')):
+            cmd = cmd.lower()
+
+        cmd_func_map = {
+            'power': self.roku.power,
+            'back': self.roku.back,
+            'home': self.roku.home,
+            'left': self.roku.left,
+            'down': self.roku.down,
+            'up': self.roku.up,
+            'right': self.roku.right,
+            'replay': self.roku.replay,
+            'info': self.roku.info,
+            'reverse': self.roku.reverse,
+            'forward': self.roku.forward,
+            'play': self.roku.play,
+            'pause': self.roku.play,  # Same as play
+            'volume-up': self.roku.volume_up,
+            'volume-down': self.roku.volume_down,
+            'mute': self.roku.volume_mute,
+            'select': self.roku.select,
+            'enter': self.roku.select,  # Alias for select
+        }
+
+        if cmd in cmd_func_map:
+            try:
+                cmd_func_map[cmd]()
+                return True
+            except:
+                print(f'Failed to execute command: {cmd}')
+                return False
+        return False
+
+    def execute_text(self, text):
+        """Execute text input"""
+        try:
+            for char in text:
+                self.roku.literal(char)
+            self.roku.enter()
+            return True
+        except:
+            print(f'Failed to input text: {text}')
+            return False
+
+    def parse_and_execute_commands(self, command_string):
+        """Parse and execute a command string"""
+        # Split on comma and handle optional spaces
+        commands = [cmd.strip() for cmd in command_string.split(',')]
+
+        for cmd in commands:
+            if not cmd:
+                continue
+
+            cmd = cmd.strip()
+            
+            # Handle wait command
+            if cmd.upper().startswith('WAIT:'):
+                try:
+                    delay = float(cmd.split(':')[1])
+                    time.sleep(delay)
+                    continue
+                except ValueError:
+                    print(f'Invalid wait command: {cmd}')
+                    return False
+            
+            # Handle text input
+            if cmd.upper().startswith('TEXT:'):
+                text = cmd[5:]
+                if not self.execute_text(text):
+                    return False
+                continue
+            
+            # Handle regular commands
+            if not self.execute_command(cmd):
+                return False
+            
+            # Small delay between commands for stability
+            time.sleep(0.1)
+        
+        return True
 
     def text_entry(self):
         """ Relay literal text entry from user to Roku until
@@ -99,6 +192,7 @@ class RokuCLI():
             sys.stdout.flush()
 
     def run(self):
+        args = self.parseargs()
         ipaddr = self.parseargs().ipaddr
 
         # If IP not specified, use Roku discovery and let user choose
@@ -109,6 +203,11 @@ class RokuCLI():
 
         if not self.roku:
             return
+
+        # Script mode
+        if args.command:
+            success = self.parse_and_execute_commands(args.command)
+            sys.exit(0 if success else 1)
 
         print(self.roku.device_info)
         is_tv = (self.roku.device_info.roku_type == "TV")
