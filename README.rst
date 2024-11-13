@@ -1,7 +1,8 @@
 roku-cli
 ========
 
-Interactively control your Roku device from the command-line with vim-style key bindings.
+Interactively control your Roku device from the command-line with vim-style key bindings,
+supporting both interactive and script modes.
 
 .. image:: https://travis-ci.org/ncmiller/roku-cli.svg?branch=master
     :target: https://travis-ci.org/ncmiller/roku-cli
@@ -53,6 +54,9 @@ Windows. Sorry, no native Windows support.
 Usage
 -------
 
+Interactive Mode
+~~~~~~~~~~~~~~~~~
+
 To launch the CLI::
 
     $ roku
@@ -91,3 +95,42 @@ your Roku::
     |                               | Volume Mute     M       |
     +-------------------------------+-------------------------+
     (press q to exit)
+
+Script Mode
+~~~~~~~~~~~~
+
+For automation or scripting, you can use the command mode with the -c flag::
+
+    $ roku -c "home, down, TEXT:Breaking Bad"
+
+Commands are comma-separated and case-insensitive. Spaces after commas are optional.
+Special commands:
+
+* TEXT: - Enter text (case-sensitive)::
+
+    $ roku -c "TEXT:Search Term"
+
+* WAIT: - Add delay in seconds::
+
+    $ roku -c "home, WAIT:1, right"
+
+Note: A small delay (0.1s) is automatically added between commands for stability.
+You can use the WAIT command for additional delays when needed.
+
+Available Commands:
+    * Navigation: home, up, down, left, right, back, select
+    * Playback: play, pause, forward, reverse, replay
+    * Volume: volume-up, volume-down, mute
+    * Other: power, info
+
+Example Scripts::
+
+    # Search for a show
+    $ roku -c "home, WAIT:5, up, up, up, right, TEXT:Breaking Bad, WAIT:1, right, right, right, right, right, right, WAIT:3, select"
+
+    # Adjust volume
+    $ roku -c "volume-up, WAIT:0.5, volume-up"
+
+Both interactive and script modes support specifying the Roku IP address as the first argument::
+
+    $ roku 192.168.1.118 -c "home, right, select"
